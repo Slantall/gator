@@ -24,6 +24,7 @@ func main() {
 	cmds.register("login", handlerLogin)
 	cmds.register("register", handlerRegister)
 	cmds.register("reset", handlerReset)
+	cmds.register("users", handlerGetUsers)
 	allArgs := os.Args
 	if len(allArgs) < 2 {
 		fmt.Println("No command given.")

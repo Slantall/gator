@@ -78,3 +78,17 @@ func handlerReset(s *state, cmd command) error {
 	}
 	return nil
 }
+
+func handlerGetUsers(s *state, cmd command) error {
+	users, err := s.db.GetUsers(context.Background())
+	if err != nil {
+		return fmt.Errorf("Failed to create user: %w", err)
+	}
+	for _, user := range users {
+		if s.cfgPointer.CurrentUserName == user {
+			user = fmt.Sprintf("%v (current)", user)
+		}
+		fmt.Println(user)
+	}
+	return nil
+}
