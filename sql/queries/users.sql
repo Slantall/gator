@@ -14,6 +14,11 @@ RETURNING *;
 SELECT * FROM users
 WHERE name = $1;
 
+-- name: GetUserWithID :one
+SELECT * FROM users
+WHERE id = $1;
+
+
 
 -- name: ResetUsers :exec
 DELETE FROM users;
