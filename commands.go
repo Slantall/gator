@@ -82,7 +82,7 @@ func handlerReset(s *state, cmd command) error {
 func handlerGetUsers(s *state, cmd command) error {
 	users, err := s.db.GetUsers(context.Background())
 	if err != nil {
-		return fmt.Errorf("Failed to create user: %w", err)
+		return fmt.Errorf("Failed to retrieve user: %w", err)
 	}
 	for _, user := range users {
 		if s.cfgPointer.CurrentUserName == user {
@@ -90,5 +90,33 @@ func handlerGetUsers(s *state, cmd command) error {
 		}
 		fmt.Println(user)
 	}
+	return nil
+}
+
+func handlerAddFeed(s *state, cmd command) error {
+	if len(cmd.cmdargs) != 2 {
+		return fmt.Errorf("Incorrect amount of args entered. 'AddFeed' requires 2 args: 'name' and 'url'")
+	}
+	currentUser, err := s.db.GetUser(context.Background(), s.cfgPointer.CurrentUserName)
+	if err != nil {
+		return err
+	}
+
+	params := database.CreateFeedParams{
+		ID:        uuid.New(),
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+		Name:      cmd.cmdargs[0],
+		Url:       cmd.cmdargs[1],
+		UserID: uuid.NullUUID{
+			UUID:  currentUser.ID,
+			Valid: true,
+		},
+	}
+	feed, err := s.db.CreateFeed(context.Background(), params)
+	if err != nil {
+		return err
+	}
+	fmt.Println(feed)
 	return nil
 }
