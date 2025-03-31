@@ -93,14 +93,11 @@ func handlerGetUsers(s *state, cmd command) error {
 	return nil
 }
 
-func handlerAddFeed(s *state, cmd command) error {
+func handlerAddFeed(s *state, cmd command, currentUser database.User) error {
 	if len(cmd.cmdargs) != 2 {
 		return fmt.Errorf("Incorrect amount of args entered. 'AddFeed' requires 2 args: 'name' and 'url'")
 	}
-	currentUser, err := s.db.GetUser(context.Background(), s.cfgPointer.CurrentUserName)
-	if err != nil {
-		return err
-	}
+
 	url := cmd.cmdargs[1]
 	params := database.CreateFeedParams{
 		ID:        uuid.New(),
@@ -119,7 +116,7 @@ func handlerAddFeed(s *state, cmd command) error {
 		cmdName: "follow",
 		cmdargs: []string{url},
 	}
-	handlerFollow(s, followcmd)
+	handlerFollow(s, followcmd, currentUser)
 	return nil
 }
 
@@ -138,7 +135,7 @@ func handlerFeeds(s *state, cmd command) error {
 	return nil
 }
 
-func handlerFollow(s *state, cmd command) error {
+func handlerFollow(s *state, cmd command, currentUser database.User) error {
 	if len(cmd.cmdargs) < 1 {
 		return fmt.Errorf("URL argument is required")
 	}
@@ -146,11 +143,6 @@ func handlerFollow(s *state, cmd command) error {
 	feed, err := s.db.GetFeedWithURL(context.Background(), url)
 	if err != nil {
 		return fmt.Errorf("Failed to retrieve feeds: %w", err)
-	}
-
-	currentUser, err := s.db.GetUser(context.Background(), s.cfgPointer.CurrentUserName)
-	if err != nil {
-		return fmt.Errorf("Failed to retrieve user: %w", err)
 	}
 
 	params := database.CreateFeedFollowParams{
@@ -168,11 +160,7 @@ func handlerFollow(s *state, cmd command) error {
 	return nil
 }
 
-func handlerFollowing(s *state, cmd command) error {
-	currentUser, err := s.db.GetUser(context.Background(), s.cfgPointer.CurrentUserName)
-	if err != nil {
-		return fmt.Errorf("Failed to retrieve user: %w", err)
-	}
+func handlerFollowing(s *state, cmd command, currentUser database.User) error {
 	following, err := s.db.GetFeedFollowsForUser(context.Background(), currentUser.ID)
 	if err != nil {
 		return fmt.Errorf("Failed to find following list %w", err)
@@ -185,4 +173,14 @@ func handlerFollowing(s *state, cmd command) error {
 		fmt.Printf("%d. %s\n", i+1, feed.FeedName)
 	}
 	return nil
+}
+
+func middlewareLoggedIn(handler func(s *state, cmd command, user database.User) error) func(*state, command) error {
+	return func(s *state, cmd command) error {
+		user, err := s.db.GetUser(context.Background(), s.cfgPointer.CurrentUserName)
+		if err != nil {
+			return fmt.Errorf("Failed to retrieve user: %w", err)
+		}
+		return handler(s, cmd, user)
+	}
 }

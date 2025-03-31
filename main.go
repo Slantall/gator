@@ -26,10 +26,10 @@ func main() {
 	cmds.register("reset", handlerReset)
 	cmds.register("users", handlerGetUsers)
 	cmds.register("agg", handlerAgg)
-	cmds.register("addfeed", handlerAddFeed)
+	cmds.register("addfeed", middlewareLoggedIn(handlerAddFeed))
 	cmds.register("feeds", handlerFeeds)
-	cmds.register("follow", handlerFollow)
-	cmds.register("following", handlerFollowing)
+	cmds.register("follow", middlewareLoggedIn(handlerFollow))
+	cmds.register("following", middlewareLoggedIn(handlerFollowing))
 	allArgs := os.Args
 	if len(allArgs) < 2 {
 		fmt.Println("No command given.")
