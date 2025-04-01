@@ -184,3 +184,18 @@ func middlewareLoggedIn(handler func(s *state, cmd command, user database.User) 
 		return handler(s, cmd, user)
 	}
 }
+
+func handlerUnfollow(s *state, cmd command, currentUser database.User) error {
+	if len(cmd.cmdargs) < 1 {
+		return fmt.Errorf("URL argument is required")
+	}
+	params := database.UnfollowParams{
+		UserID: currentUser.ID,
+		Url:    cmd.cmdargs[0],
+	}
+	err := s.db.Unfollow(context.Background(), params)
+	if err != nil {
+		return fmt.Errorf("Failed to unfollow: %w", err)
+	}
+	return nil
+}
