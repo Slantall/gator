@@ -2,11 +2,15 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"encoding/xml"
 	"fmt"
+	"gator/internal/database"
 	"html"
 	"io"
 	"net/http"
+	"os"
+	"time"
 )
 
 func fetchFeed(ctx context.Context, feedURL string) (*RSSFeed, error) {
@@ -47,10 +51,53 @@ func fetchFeed(ctx context.Context, feedURL string) (*RSSFeed, error) {
 }
 
 func handlerAgg(s *state, cmd command) error {
-	feed, err := fetchFeed(context.Background(), "https://www.wagslane.dev/index.xml")
+	if len(cmd.cmdargs) < 1 {
+		return fmt.Errorf("duration string is required")
+	}
+	timeBetweenRequests, err := time.ParseDuration(cmd.cmdargs[0])
+	if err != nil {
+		return fmt.Errorf("Failed to parse time between requests duration: %w", err)
+	}
+	ticker := time.NewTicker(timeBetweenRequests)
+	for ; ; <-ticker.C {
+		if err := scrapeFeeds(s); err != nil {
+			fmt.Fprintf(os.Stderr, "Error scraping feeds: %v\n", err)
+		}
+	}
+
+	//return nil
+}
+
+func scrapeFeeds(s *state) error {
+	nextfeed, err := s.db.GetNextFeedToFetch(context.Background())
+	if err != nil {
+		return fmt.Errorf("Failed to find Feed to fetch: %w", err)
+	}
+
+	currentTime := sql.NullTime{
+		Time:  time.Now(),
+		Valid: true,
+	}
+
+	markFetchedParams := database.MarkFeedFetchedParams{
+		LastFetchedAt: currentTime,
+		ID:            nextfeed.ID,
+	}
+
+	err = s.db.MarkFeedFetched(context.Background(), markFetchedParams)
+	if err != nil {
+		return fmt.Errorf("Failed to mark feed as fetched: %w", err)
+	}
+	feed, err := fetchFeed(context.Background(), nextfeed.Url)
 	if err != nil {
 		return fmt.Errorf("Failed to fetch RSS Feed: %w", err)
 	}
-	fmt.Println(feed)
+
+	fmt.Printf("Feed: %s\n", feed.Channel.Title)
+
+	for _, i := range feed.Channel.Item {
+		fmt.Println(i.Title)
+	}
+
 	return nil
 }
