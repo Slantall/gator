@@ -11,6 +11,9 @@ import (
 	"net/http"
 	"os"
 	"time"
+
+	"github.com/google/uuid"
+	"github.com/lib/pq"
 )
 
 func fetchFeed(ctx context.Context, feedURL string) (*RSSFeed, error) {
@@ -96,7 +99,38 @@ func scrapeFeeds(s *state) error {
 	fmt.Printf("Feed: %s\n", feed.Channel.Title)
 
 	for _, i := range feed.Channel.Item {
-		fmt.Println(i.Title)
+		desc := sql.NullString{
+			String: i.Description,
+			Valid:  true,
+		}
+		pubTime, err := time.Parse(time.RFC1123, i.PubDate)
+		if err != nil {
+			return fmt.Errorf("Failed to parse publish time: %w", err)
+		}
+		postParams := database.CreatePostParams{
+			ID:          uuid.New(),
+			CreatedAt:   time.Now(),
+			UpdatedAt:   time.Now(),
+			Title:       i.Title,
+			Url:         i.Link,
+			Description: desc,
+			PublishedAt: pubTime,
+			FeedID:      nextfeed.ID,
+		}
+		post, err := s.db.CreatePost(context.Background(), postParams)
+
+		if err != nil {
+			if pqErr, ok := err.(*pq.Error); ok {
+				if pqErr.Code == "23505" {
+					continue
+				} else {
+					return fmt.Errorf("Failed to create post, due to PostgreSQL error: %w", err)
+				}
+			} else {
+				return fmt.Errorf("Failed to create post, due to error: %w", err)
+			}
+		}
+		fmt.Printf("Creating post: %s\n", post.Title)
 	}
 
 	return nil

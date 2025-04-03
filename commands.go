@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"gator/internal/database"
 	"os"
+	"strconv"
 	"time"
 
 	"github.com/google/uuid"
@@ -195,7 +196,40 @@ func handlerUnfollow(s *state, cmd command, currentUser database.User) error {
 	}
 	err := s.db.Unfollow(context.Background(), params)
 	if err != nil {
-		return fmt.Errorf("Failed to unfollow: %w", err)
+		return fmt.Errorf("Could not unfollow: %w", err)
 	}
+	return nil
+}
+
+func handlerBrowse(s *state, cmd command, currentUser database.User) error {
+	limit := 2
+	if len(cmd.cmdargs) == 1 {
+		num, err := strconv.Atoi(cmd.cmdargs[0])
+		if err != nil {
+			return fmt.Errorf("String entered for limt, requires an integer: %w", err)
+		}
+		limit = num
+	}
+	userPostParams := database.GetPostsForUserParams{
+		UserID: currentUser.ID,
+		Limit:  int32(limit),
+	}
+	posts, err := s.db.GetPostsForUser(context.Background(), userPostParams)
+	if err != nil {
+		return fmt.Errorf("Couldn't get posts for user: %w", err)
+	}
+
+	if len(posts) == 0 {
+		fmt.Println("No posts found from your followed feeds.")
+		return nil
+	}
+
+	for i, post := range posts {
+		fmt.Printf("--- Post %d ---\n", i+1)
+		fmt.Printf("Title: %s\n", post.Title)
+		fmt.Printf("Published: %s\n", post.PublishedAt.Format("Jan 02, 2006"))
+		fmt.Printf("URL: %s\n", post.Url)
+	}
+
 	return nil
 }
